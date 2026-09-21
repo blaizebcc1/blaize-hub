@@ -1,5 +1,3 @@
-local BlaizeHub = {}
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -728,7 +726,7 @@ function BlaizeHub:CreateWindow(config)
 	return Window
 end
 
--- sounds/dialog helpers - defined before anything uses them
+-- sound + dialog stuff
 local soundEvent = ReplicatedStorage:FindFirstChild("playSound")
 local Sounds = ReplicatedStorage:FindFirstChild("Sounds")
 
@@ -749,11 +747,11 @@ local function FireDialog(lines)
 	if e then firesignal(e.OnClientEvent, lines) end
 end
 
--- custom toast notification (always shows regardless of game, used for freecam etc.)
+-- toast notif, use this instead of firedlaog when we always need it to show
 local _toastGui = nil
 local function ShowToast(message, duration)
 	duration = duration or 3.5
-	-- destroy any existing toast
+	-- kill old one if still there
 	if _toastGui and _toastGui.Parent then _toastGui:Destroy() end
 
 	local toastSG = Create("ScreenGui", {
@@ -777,7 +775,7 @@ local function ShowToast(message, duration)
 	Create("UIStroke", { Color = Color3.fromRGB(38, 38, 38), Thickness = 1, Parent = toast })
 	Create("UIPadding", { PaddingLeft = UDim.new(0, pad), PaddingRight = UDim.new(0, pad), Parent = toast })
 
-	-- accent bar on left edge
+	-- left accent
 	Create("Frame", {
 		Size = UDim2.new(0, 2, 1, -10),
 		Position = UDim2.new(0, 0, 0, 5),
@@ -799,7 +797,7 @@ local function ShowToast(message, duration)
 		Parent = toast,
 	})
 
-	-- slide in from bottom
+	-- animate in
 	local slideIn = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	TweenService:Create(toast, slideIn, { Position = UDim2.new(0.5, -toastW/2, 1, -52) }):Play()
 
@@ -835,7 +833,7 @@ local function GetHRP()
 	return char:FindFirstChild("HumanoidRootPart")
 end
 
--- acBypass / acStrict declared here so SafeTP can use them, and so helpers below can call SafeTP
+-- these need to be above SafeTP, dont move them down
 local noclipConn = nil
 local flyConn = nil
 local freecamConn = nil
@@ -974,7 +972,7 @@ local function TeleportToWreck(wreck)
 end
 local flyBV, flyBG = nil, nil
 
--- list of supported games shown on the game menu
+-- supported games
 local Games = {
 	{ id = "sns",  name = "Sail and Sink Simulator",         sub = "sail & sink"        },
 	{ id = "sve",  name = "Speed Verity Escape",              sub = "stage teleporter"   },
@@ -988,7 +986,7 @@ local Games = {
 
 local KEY = "e"
 
--- shared ScreenGui for all pre-hub screens
+-- one gui handles all the gate screens
 local gateGui = Create("ScreenGui", {
 	Name = "BlaizeGate",
 	ResetOnSpawn = false,
@@ -996,7 +994,7 @@ local gateGui = Create("ScreenGui", {
 	Parent = CoreGui,
 })
 
--- helper: dark card frame centred on screen
+-- dark centred card
 local function MakeCard(w, h)
 	local bg = Create("Frame", {
 		Size = UDim2.new(0, w, 0, h),
@@ -1011,7 +1009,7 @@ local function MakeCard(w, h)
 end
 
 local function LaunchHub(selectedGame)
-	-- clear game menu, show loading screen
+	-- clear old ui, show loading
 	for _, ch in ipairs(gateGui:GetChildren()) do ch:Destroy() end
 	local loadBg = MakeCard(220, 90)
 	Create("ImageLabel", {
@@ -2384,12 +2382,12 @@ local function LaunchHub(selectedGame)
 		})
 	end
 
-	-- Cheats tab
+	-- cheats
 	local CheatsTab = Window:AddTab({ Name = "Cheats" })
 
 	CheatsTab:AddSection("Teleport")
 
-	-- player list for TP-to-player dropdown
+	-- get all players for the tp dropdown
 	local function GetPlayerOptions()
 		local opts = {}
 		for _, p in ipairs(Players:GetPlayers()) do
@@ -2752,7 +2750,7 @@ local function LaunchHub(selectedGame)
 		end,
 	})
 
-	-- Settings tab
+	-- settings
 	local SettingsTab = Window:AddTab({ Name = "Settings" })
 
 	SettingsTab:AddSection("Theme")
@@ -2856,7 +2854,7 @@ local function LaunchHub(selectedGame)
 		end,
 	})
 
-	-- strict mode row - manually built so we can grey it out
+	-- strict toggle built by hand so we can grey it when bypass is off
 	do
 		local strictRow = Create("Frame", {
 			Size = UDim2.new(1, 0, 0, 36),
@@ -2995,7 +2993,7 @@ local function LaunchHub(selectedGame)
 	end)
 end
 
--- GAME MENU SCREEN
+-- game select
 local function ShowGameMenu()
 	for _, ch in ipairs(gateGui:GetChildren()) do ch:Destroy() end
 
@@ -3006,7 +3004,7 @@ local function ShowGameMenu()
 
 	Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = menuBg })
 
-	-- header row
+	-- top bar
 	local headerH = 52
 	Create("ImageLabel", {
 		Size = UDim2.new(0, 26, 0, 26),
@@ -3028,7 +3026,7 @@ local function ShowGameMenu()
 		Parent = menuBg,
 	})
 
-	-- close button
+	-- x button
 	local menuClose = Create("TextButton", {
 		Size = UDim2.new(0, 28, 0, 22),
 		Position = UDim2.new(1, -34, 0, headerH/2 - 11),
@@ -3044,7 +3042,7 @@ local function ShowGameMenu()
 	menuClose.MouseLeave:Connect(function() menuClose.TextColor3 = Color3.fromRGB(70,70,70) end)
 	menuClose.MouseButton1Click:Connect(function() gateGui:Destroy() end)
 
-	-- divider below header
+	-- line under header
 	Create("Frame", {
 		Size = UDim2.new(1, -24, 0, 1),
 		Position = UDim2.new(0, 12, 0, headerH),
@@ -3053,7 +3051,7 @@ local function ShowGameMenu()
 		Parent = menuBg,
 	})
 
-	-- search bar
+	-- search
 	local searchY = headerH + 10
 	local searchBar = Create("TextBox", {
 		Size = UDim2.new(1, -24, 0, 30),
@@ -3073,7 +3071,7 @@ local function ShowGameMenu()
 	Create("UIStroke", { Color = Color3.fromRGB(32,32,32), Thickness = 1, Parent = searchBar })
 	Create("UIPadding", { PaddingLeft = UDim.new(0, 10), Parent = searchBar })
 
-	-- scrolling list of games
+	-- game list
 	local listY = searchY + 38
 	local listH = menuH - listY - 10
 	local gameList = Create("ScrollingFrame", {
@@ -3204,13 +3202,13 @@ local function ShowGameMenu()
 	end)
 end
 
--- KEY ENTRY SCREEN
+-- key screen
 local function ShowKeyScreen()
 	for _, ch in ipairs(gateGui:GetChildren()) do ch:Destroy() end
 
 	local keyBg = MakeCard(320, 170)
 
-	-- close button
+	-- x button
 	local keyClose = Create("TextButton", {
 		Size = UDim2.new(0, 28, 0, 20),
 		Position = UDim2.new(1, -32, 0, 6),
@@ -3305,7 +3303,7 @@ local function ShowKeyScreen()
 	end)
 end
 
--- KEY SYSTEM: set to true to require a key, false for keyless
+-- flip to true when u want keys enforced
 local KEY_ENABLED = false
 
 if not KEY_ENABLED or _G.BlaizeKeyPassed then
