@@ -982,6 +982,7 @@ local Games = {
 	{ id = "bga",  name = "Build a Gun Army",                 sub = "auto kill"          },
 	{ id = "apc",  name = "+1 Ammo Per Click",                sub = "ammo farm"          },
 	{ id = "ftn",  name = "Find the Needohs!",               sub = "needoh finder"      },
+	{ id = "sel",  name = "Sell Energy",                     sub = "collect & upgrade"  },
 }
 
 local KEY = "e"
@@ -2324,6 +2325,159 @@ local function LaunchHub(selectedGame)
 			end,
 		})
 
+	elseif selectedGame and selectedGame.id == "sel" then
+		-- Sell Energy
+
+		-- find the player's slot by matching userid prefix
+		local function GetMySlot()
+			local slotsFolder = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Slots")
+			if not slotsFolder then return nil end
+			local myId = tostring(LocalPlayer.UserId)
+			for _, slot in ipairs(slotsFolder:GetChildren()) do
+				local n = slot.Name
+				if n:sub(1, #myId) == myId and n:sub(#myId + 1, #myId + 5) == "_slot" then
+					return slot
+				end
+			end
+			return nil
+		end
+
+		-- collect all building names in the player's slot
+		local function GetBuildingNames(slot)
+			local names = {}
+			if not slot then return names end
+			local buildings = slot:FindFirstChild("Buildings")
+			if not buildings then return names end
+			for _, b in ipairs(buildings:GetChildren()) do
+				if b:IsA("Folder") or b:IsA("Model") then
+					table.insert(names, { name = b.Name })
+				end
+			end
+			return names
+		end
+
+		local SELTab = Window:AddTab({ Name = "Energy" })
+
+		-- collect loop
+		SELTab:AddSection("Collect Money")
+
+		local collectRunning = false
+
+		SELTab:AddToggle({
+			Label = "Auto Collect All Buildings",
+			Default = false,
+			Callback = function(state)
+				if state then
+					collectRunning = true
+					FireDialog({ "[BLAIZE]Auto collect on." })
+					task.spawn(function()
+						while collectRunning do
+							local slot = GetMySlot()
+							if slot then
+								local buildings = slot:FindFirstChild("Buildings")
+								if buildings then
+									for _, b in ipairs(buildings:GetChildren()) do
+										if b:IsA("Folder") or b:IsA("Model") then
+											local collectEvent = b:FindFirstChild("Collect")
+											if collectEvent then
+												pcall(function() collectEvent:FireServer() end)
+											end
+										end
+									end
+								end
+							end
+							task.wait(0.02) -- 20ms
+						end
+					end)
+				else
+					collectRunning = false
+					FireDialog({ "[BLAIZE]Auto collect off." })
+				end
+			end,
+		})
+
+		-- upgrade section
+		SELTab:AddSection("Upgrade")
+
+		local selectedUpgradeBuilding = nil
+		local upgradeBuildingDropdown = nil
+
+		-- build the options list from whatever's in the slot
+		local function RefreshUpgradeOptions()
+			local slot = GetMySlot()
+			local names = GetBuildingNames(slot)
+			if #names == 0 then
+				table.insert(names, { name = "No buildings found" })
+			end
+			selectedUpgradeBuilding = names[1]
+			if upgradeBuildingDropdown then
+				-- can't dynamically reload, user can re-enter tab
+			end
+			return names
+		end
+
+		local buildingOptions = RefreshUpgradeOptions()
+
+		upgradeBuildingDropdown = SELTab:AddDropdown({
+			Label = "Select Building...",
+			Options = buildingOptions,
+			Callback = function(opt)
+				selectedUpgradeBuilding = opt
+			end,
+		})
+
+		SELTab:AddButton({
+			Label = "Upgrade Selected",
+			Callback = function()
+				local slot = GetMySlot()
+				if not slot then FireDialog({ "[BLAIZE]Slot not found." }) return end
+				if not selectedUpgradeBuilding then FireDialog({ "[BLAIZE]Select a building first." }) return end
+				local buildings = slot:FindFirstChild("Buildings")
+				if not buildings then FireDialog({ "[BLAIZE]No buildings folder." }) return end
+				local b = buildings:FindFirstChild(selectedUpgradeBuilding.name)
+				if not b then FireDialog({ "[BLAIZE]Building not found." }) return end
+				local upgradeEvent = b:FindFirstChild("Upgrade")
+				if not upgradeEvent then FireDialog({ "[BLAIZE]No upgrade event on " .. selectedUpgradeBuilding.name .. "." }) return end
+				pcall(function() upgradeEvent:FireServer() end)
+				FireDialog({ "[BLAIZE]Upgrade fired on " .. selectedUpgradeBuilding.name .. "." })
+			end,
+		})
+
+		local autoUpgradeRunning = false
+
+		SELTab:AddToggle({
+			Label = "Auto Upgrade All (1s loop)",
+			Default = false,
+			Callback = function(state)
+				if state then
+					autoUpgradeRunning = true
+					FireDialog({ "[BLAIZE]Auto upgrade on." })
+					task.spawn(function()
+						while autoUpgradeRunning do
+							local slot = GetMySlot()
+							if slot then
+								local buildings = slot:FindFirstChild("Buildings")
+								if buildings then
+									for _, b in ipairs(buildings:GetChildren()) do
+										if b:IsA("Folder") or b:IsA("Model") then
+											local upgradeEvent = b:FindFirstChild("Upgrade")
+											if upgradeEvent then
+												pcall(function() upgradeEvent:FireServer() end)
+											end
+										end
+									end
+								end
+							end
+							task.wait(1)
+						end
+					end)
+				else
+					autoUpgradeRunning = false
+					FireDialog({ "[BLAIZE]Auto upgrade off." })
+				end
+			end,
+		})
+
 	else
 		-- Sail and Sink Simulator tabs
 
@@ -2746,6 +2900,23 @@ local function LaunchHub(selectedGame)
 				StartFreecam()
 			else
 				StopFreecam()
+			end
+		end,
+	})
+
+	CheatsTab:AddSection("Rendering")
+
+	CheatsTab:AddToggle({
+		Label = "Disable 3D Rendering",
+		Default = false,
+		Callback = function(state)
+			if state then
+				-- kill 3d but keep ui/coregui alive
+				game:GetService("RunService"):Set3dRenderingEnabled(false)
+				ShowToast("3D rendering off  -  hub still visible", 3)
+			else
+				game:GetService("RunService"):Set3dRenderingEnabled(true)
+				ShowToast("3D rendering on", 2)
 			end
 		end,
 	})
